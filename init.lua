@@ -939,6 +939,32 @@ require('lazy').setup({
     end,
   },
 
+  -- CANER
+  --
+  --
+
+  {
+    'petertriho/nvim-scrollbar',
+    config = function()
+      require('scrollbar').setup {
+        show = true,
+        handle = {
+          text = '▐',
+          color = '#544d4d', -- Adjust the color as needed
+          highlight = 'CursorColumn',
+        },
+        marks = {
+          Search = { text = { '-', '=' }, priority = 0, color = 'yellow' },
+          Error = { text = { '-', '=' }, priority = 1, color = 'red' },
+          Warn = { text = { '-', '=' }, priority = 2, color = 'orange' },
+          Info = { text = { '-', '=' }, priority = 3, color = 'blue' },
+          Hint = { text = { '-', '=' }, priority = 4, color = 'green' },
+        },
+        excluded_filetypes = { 'prompt', 'TelescopePrompt', 'noice' }, -- Exclude from certain buffers
+      }
+    end,
+  },
+
   -- Highlight todo, notes, etc in comments
   { 'folke/todo-comments.nvim', event = 'VimEnter', dependencies = { 'nvim-lua/plenary.nvim' }, opts = { signs = false } },
 
