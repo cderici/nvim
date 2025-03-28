@@ -696,7 +696,14 @@ require('lazy').setup({
             },
           },
         },
-
+        -- tsserver = {
+        --   -- Disable formatting if you're going to use something like Prettier
+        --   on_attach = function(client, _)
+        --     client.server_capabilities.documentFormattingProvider = false
+        --   end,
+        --   -- Optional: add custom settings here
+        --   filetypes = { 'javascript', 'javascriptreact', 'typescript', 'typescriptreact' },
+        -- },
         pyright = {
           settings = {
             python = {
@@ -942,7 +949,11 @@ require('lazy').setup({
   -- CANER
   --
   --
-
+  {
+    'pmizio/typescript-tools.nvim',
+    dependencies = { 'nvim-lua/plenary.nvim', 'neovim/nvim-lspconfig' },
+    opts = {},
+  },
   {
     'petertriho/nvim-scrollbar',
     config = function()
