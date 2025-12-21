@@ -113,6 +113,7 @@ vim.opt.mouse = 'a'
 vim.opt.showmode = false
 
 vim.opt.tabstop = 4
+vim.opt.writebackup = false
 
 -- Sync clipboard between OS and Neovim.
 --  Schedule the setting after `UiEnter` because it can increase startup-time.
@@ -553,6 +554,8 @@ require('lazy').setup({
             vim.keymap.set(mode, keys, func, { buffer = event.buf, desc = 'LSP: ' .. desc })
           end
 
+          map('K', vim.lsp.buf.hover, 'Hover Documentation')
+
           -- Jump to the definition of the word under your cursor.
           --  This is where a variable was first declared, or where a function is defined, etc.
           --  To jump back, press <C-t>.
@@ -658,7 +661,16 @@ require('lazy').setup({
       --  - settings (table): Override the default settings passed when initializing the server.
       --        For example, to see the options for `lua_ls`, you could go to: https://luals.github.io/wiki/settings/
       local servers = {
-        -- clangd = {},
+        clangd = {
+          cmd = {
+            vim.fn.stdpath 'data' .. '/mason/bin/clangd',
+            '--background-index',
+            '--clang-tidy',
+            '--header-insertion=never',
+            '--query-driver=/usr/bin/clang++,/usr/bin/clang,/usr/bin/g++,/usr/bin/gcc,/usr/bin/**',
+          },
+        },
+
         -- gopls = {},
         -- pyright = {},
         -- rust_analyzer = {},
@@ -682,6 +694,37 @@ require('lazy').setup({
               },
               -- You can toggle below to ignore Lua_LS's noisy `missing-fields` warnings
               -- diagnostics = { disable = { 'missing-fields' } },
+            },
+          },
+        },
+        -- LaTeX --------------------------------------------------------------
+        texlab = {
+          -- anything in `cmd` / `filetypes` / `capabilities` is optional here;
+          -- Mason will supply the default cmd and we inherit your global `capabilities`.
+          settings = {
+            texlab = {
+              -- ⏵ Build with latexmk every time you save
+              build = {
+                executable = 'latexmk',
+                args = { '-pdf', '-interaction=nonstopmode', '-synctex=1', '%f' },
+                onSave = true, -- <== live-reload on :w
+                forwardSearchAfter = true, -- jump to PDF when build finishes
+              },
+
+              -- ⏵ Forward / inverse search via Zathura + SyncTeX
+              forwardSearch = {
+                executable = 'zathura',
+                -- %l → current line in TeX source, %f → source file, %p → PDF file
+                args = { '--synctex-forward', '%l:1:%f', '%p' },
+              },
+
+              -- ⏵ Optional quality-of-life knobs
+              auxDirectory = 'build', -- keep clutter out of the project root
+              bibtexFormatter = 'latexindent',
+              chktex = { -- we’ll lint through null-ls instead
+                onOpenAndSave = false,
+                onEdit = false,
+              },
             },
           },
         },
@@ -773,29 +816,11 @@ require('lazy').setup({
     },
     opts = {
       notify_on_error = false,
-      format_on_save = function(bufnr)
-        -- Disable "format_on_save lsp_fallback" for languages that don't
-        -- have a well standardized coding style. You can add additional
-        -- languages here or re-enable it for the disabled ones.
-        local disable_filetypes = { c = true, cpp = true }
-        local lsp_format_opt
-        if disable_filetypes[vim.bo[bufnr].filetype] then
-          lsp_format_opt = 'never'
-        else
-          lsp_format_opt = 'fallback'
-        end
-        return {
-          timeout_ms = 500,
-          lsp_format = lsp_format_opt,
-        }
-      end,
+      format_on_save = { lsp_format = 'fallback', timeout_ms = 500 },
       formatters_by_ft = {
         lua = { 'stylua' },
-        -- Conform can also run multiple formatters sequentially
-        -- python = { "isort", "black" },
-        --
-        -- You can use 'stop_after_first' to run the first available formatter from the list
-        -- javascript = { "prettierd", "prettier", stop_after_first = true },
+        c = { 'clang-format' },
+        cpp = { 'clang-format' },
       },
     },
   },
@@ -946,14 +971,61 @@ require('lazy').setup({
     end,
   },
 
+  {
+    'axelf4/vim-strip-trailing-whitespace',
+    -- No need for high priority, let it load normally.
+    -- If you want to set options or keymaps, add an `init = function() ... end,` block here.
+    -- Example: Automatically strip on save (optional)
+    init = function()
+      -- By default, it strips on save. If you want to disable on save:
+      -- vim.g.strip_whitespace_on_save = 0
+      -- Or only strip specific filetypes, e.g.:
+      -- vim.g.strip_whitespace_confirm = 1
+    end,
+  },
+
   -- CANER
   --
   --
+  -- VimTeX – compiler + viewer integration ---------------------------------
   {
-    'pmizio/typescript-tools.nvim',
-    dependencies = { 'nvim-lua/plenary.nvim', 'neovim/nvim-lspconfig' },
-    opts = {},
+    'lervag/vimtex',
+    ft = { 'tex' },
+    init = function()
+      -- compiler
+      vim.g.vimtex_compiler_method = 'latexmk'
+      vim.g.vimtex_compiler_latexmk = {
+        out_dir = 'build',
+        aux_dir = 'build',
+      }
+
+      -- PDF viewer (forward & inverse search)
+      vim.g.vimtex_view_method = 'zathura'
+      vim.g.vimtex_view_general_options = '--synctex-forward @line:@col:@tex @pdf'
+
+      -- quirk-free conceal
+      vim.g.vimtex_syntax_conceal_disable = 1
+    end,
   },
+
+  {
+    'lewis6991/gitsigns.nvim',
+    opts = {
+      current_line_blame = true, -- shows blame as virtual text on the current line
+      current_line_blame_opts = {
+        delay = 300,
+        virt_text_pos = 'eol',
+      },
+    },
+  },
+  -- vim.keymap.set("n", "]h", "<cmd>Gitsigns next_hunk<cr>")
+  -- vim.keymap.set("n", "[h", "<cmd>Gitsigns prev_hunk<cr>")
+  --
+  -- vim.keymap.set("n", "<leader>hp", "<cmd>Gitsigns preview_hunk<cr>")
+  -- vim.keymap.set("n", "<leader>hs", "<cmd>Gitsigns stage_hunk<cr>")
+  -- vim.keymap.set("n", "<leader>hr", "<cmd>Gitsigns reset_hunk<cr>")
+  -- vim.keymap.set("n", "<leader>hu", "<cmd>Gitsigns undo_stage_hunk<cr>")
+
   {
     'petertriho/nvim-scrollbar',
     config = function()
@@ -1024,7 +1096,25 @@ require('lazy').setup({
     main = 'nvim-treesitter.configs', -- Sets main module to use for opts
     -- [[ Configure Treesitter ]] See `:help nvim-treesitter`
     opts = {
-      ensure_installed = { 'bash', 'c', 'diff', 'html', 'lua', 'luadoc', 'markdown', 'markdown_inline', 'query', 'vim', 'vimdoc', 'lua', 'go', 'python' },
+      ensure_installed = {
+        'bash',
+        'c',
+        'cpp',
+        'cmake',
+        'json',
+        'diff',
+        'html',
+        'lua',
+        'luadoc',
+        'markdown',
+        'markdown_inline',
+        'query',
+        'vim',
+        'vimdoc',
+        'lua',
+        'go',
+        'python',
+      },
       -- Autoinstall languages that are not installed
       auto_install = true,
       highlight = {
@@ -1090,6 +1180,37 @@ require('lazy').setup({
       lazy = '💤 ',
     },
   },
+})
+
+----------------------------------------------------------------------
+--  LaTeX (VimTeX) helpers
+----------------------------------------------------------------------
+--  Drop this anywhere after vimtex is required by Lazy
+----------------------------------------------------------------------
+
+-- 1. Global VimTeX options (safe to repeat)
+vim.g.vimtex_compiler_method = 'latexmk'
+vim.g.vimtex_view_method = 'zathura'
+vim.g.vimtex_view_general_options = '--synctex-forward @line:@col:@tex @pdf'
+vim.g.vimtex_compiler_latexmk = { -- keep build artefacts tidy
+  out_dir = 'build',
+  aux_dir = 'build',
+}
+
+-- 2. FileType-specific keymaps (only active in TeX buffers)
+vim.api.nvim_create_autocmd('FileType', {
+  pattern = 'tex',
+  callback = function()
+    local map = function(lhs, rhs, desc)
+      vim.keymap.set('n', lhs, rhs, { buffer = true, silent = true, desc = desc })
+    end
+
+    map('<leader>lc', '<cmd>VimtexCompile<cr>', 'LaTeX ▸ Compile')
+    map('<leader>lv', '<cmd>VimtexView<cr>', 'LaTeX ▸ View PDF')
+    map('<leader>lt', '<cmd>VimtexTocToggle<cr>', 'LaTeX ▸ TOC')
+    map('<leader>lk', '<cmd>VimtexStop<cr>', 'LaTeX ▸ Stop compiler')
+    map('<leader>lC', '<cmd>VimtexClean<cr>', 'LaTeX ▸ Clean build dir')
+  end,
 })
 
 -- The line beneath this is called `modeline`. See `:help modeline`
