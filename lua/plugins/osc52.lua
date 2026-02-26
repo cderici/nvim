@@ -3,7 +3,9 @@ return {
     "ojroques/nvim-osc52",
     config = function()
       local osc52 = require("osc52")
-      osc52.setup({})
+      osc52.setup({
+        tmux_passthrough = true,
+      })
 
       vim.api.nvim_create_autocmd("TextYankPost", {
         callback = function()
